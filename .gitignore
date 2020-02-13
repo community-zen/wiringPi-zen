@@ -1,0 +1,3 @@
+*.o
+zen-cache
+wiringPi-zen

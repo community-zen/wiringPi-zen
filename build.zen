@@ -1,0 +1,21 @@
+const Builder = @import("std").build.Builder;
+
+pub fn build(b: *Builder) void {
+    const mode = b.standardReleaseOptions();
+    const lib = b.addStaticLibrary("wiringPi-zen", "src/main.zen");
+
+    const target = try Target.parse("armv8_5a-linux-gnueabihfv");
+    lib.setTheTarget(target);
+
+    lib.setBuildMode(mode);
+    lib.install();
+
+    // var main_tests = b.addTest("src/main.zen");
+    // main_tests.setBuildMode(mode);
+
+    // const test_step = b.step("test", "Run library tests");
+    // test_step.dependOn(&main_tests.step);
+
+
+    // // `exe`は実行ファイルビルドステップ
+}

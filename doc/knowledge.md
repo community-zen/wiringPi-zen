@@ -14,6 +14,9 @@ zen build-obj --c-source <C言語ビルド対象ファイル>  -isystem WiringPi
 
 # オブジェクトを用いて、実行モジュールを生成する
 zen build-exe --object <オブジェクト> --name wiringPi-zen -target armv8_5a-linux-gnueabihf --library c
+
+# WiringPi(C言語)をZen言語で呼び出すsetup.zenをコンパイルする方法
+zen build-obj setup.zen -isystem WiringPi/wiringPi -target armv8_5a-linux-gnueabihf --library c
 ```
 
 ### クロスコンパイルの準備(バグ?)
@@ -74,5 +77,24 @@ fatal error: 'misc/bits/syscall.h' file not found
 「misc/bits/syscall.h」はlinuxでコンパイル時に自動生成されるが、
 Zen言語でクロスコンパイルしているから？自動生成されないため、コメントアウトとした。
 
+#### _start()関数が複数ある
 
+①[PATH]/zen/lib/zen/libc/glibc/sysdeps/arm/start.S
+②[PATH]/zen/lib/zen/std/special/start.zen
+①と②の両方に_start()関数がある為、リンクエラーが発生する
+
+[解決]
+①の「_start()」を「__start()」と変更する
+    →アンダーバーを2個に増やす
+
+[原因]
+```
+C言語のオブジェクト + ZEN言語のオブジェクトをリンクする時に、
+下記のエラーが発生する。
+
+>>> defined at start.S:79 ([PATH]/zen/lib/zen/libc/glibc/sysdeps/arm/start.S:79)
+>>>            [PATH]/Library/Application Support/zen/stage1/o/YoAzedb71Geos1KJVRA7vQgBsvbmDVVn13DzJ5gB9sVxj5ROCZVUcjO7grQ97sls/Scrt1.o:(.text+0x0)
+>>> defined at start.zen:85 ([PATH]/zen/lib/zen/std/special/start.zen:85)
+>>>            setup.o:(.text+0x24440)
+```
 ---

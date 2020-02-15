@@ -18,4 +18,5 @@ pub fn build(b: *Builder) void {
 
 
     // // `exe`は実行ファイルビルドステップ
+    // // sonoda test
 }

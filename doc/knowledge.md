@@ -109,9 +109,9 @@ const target = try Target.parse("armv7m-freestanding-eabi");
     exe.setTheTarget(target);
 ```
 
-問題は、この"Target.parse()"である。<\br>
-サンプルコードをそのまま使用しても、パースエラーとなってしまう。<\br>
-ので、以下のように修正した。<\br>
+問題は、この"Target.parse()"である。  
+サンプルコードをそのまま使用しても、パースエラーとなってしまう。  
+ので、以下のように修正した。  
 [PAHT]/usr/local/bin/lib/zen/std/target.zen
 ```
     pub fn parseArchSub(text: []const u8) ParseArchSubError!Arch {

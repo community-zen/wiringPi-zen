@@ -97,4 +97,32 @@ C言語のオブジェクト + ZEN言語のオブジェクトをリンクする�
 >>> defined at start.zen:85 ([PATH]/zen/lib/zen/std/special/start.zen:85)
 >>>            setup.o:(.text+0x24440)
 ```
+#### zen > std > target.zen.zen
+
+build.zenでターゲットを指定してコンパイルする際に以下のコードを使用する
+(参照:https://www.zen-lang.org/ja-JP/docs/ch10-build-script/)
+```
+const target = try Target.parse("armv7m-freestanding-eabi");
+
+    // `exe`は実行ファイルビルドステップ
+    exe.setTheTarget(target);
+```
+
+[PAHT]zen/lib/zen/libc/glibc/sysdeps/arm/crtn.S
+```
+/* Always build .init and .fini sections in ARM mode.  */
+#define NO_THUMB
+
+// ↓ADD //
+#include <libc-symbols.h>
+
+#include <sysdep.h>
+```
+
+[原因]
+IS_IN (libc)が未定義だと出た。
+```
+error: function-like macro 'IS_IN' is not defined
+```
 ---
+

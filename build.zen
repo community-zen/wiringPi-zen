@@ -1,22 +1,60 @@
+const Target = @import("std").build.Target;
 const Builder = @import("std").build.Builder;
+const std = @import("std");
 
-pub fn build(b: *Builder) void {
+pub fn build(b: *Builder) !void {
     const mode = b.standardReleaseOptions();
-    const lib = b.addStaticLibrary("wiringPi-zen", "src/main.zen");
 
-    const target = try Target.parse("armv8_5a-linux-gnueabihfv");
-    lib.setTheTarget(target);
+// obj
+    // const object_Setup = b.addObject("setup.o", "setup.zen");
 
-    lib.setBuildMode(mode);
-    lib.install();
+    // // ビルドターゲットを設定します。
+    // const target = try Target.parse("armv8_5a-linux-gnueabihf");
+    // object_Setup.setTheTarget(target);
 
-    // var main_tests = b.addTest("src/main.zen");
-    // main_tests.setBuildMode(mode);
+    // // ビルド成果物を配置するディレクトリを設定します。
+    // object_Setup.setOutputDir("./");
 
-    // const test_step = b.step("test", "Run library tests");
-    // test_step.dependOn(&main_tests.step);
+    // // システムライブラリをリンクします。
+    // object_Setup.linkSystemLibrary("WiringPi/wiringPi");
+    // object_Setup.linkSystemLibrary("c");
 
+    // // ビルドモードを設定します。
+    // object_Setup.setBuildMode(mode);
 
-    // // `exe`は実行ファイルビルドステップ
-    // // sonoda test
+    // object_Setup.install();
+
+    // const obj_cmd = object_Setup.run();
+    // obj_cmd.step.dependOn(b.getInstallStep());
+
+    // const obj_step = b.step("obj", "Build the Object");
+    // obj_step.dependOn(&obj_cmd.step);
+
+    // std.debug.warn("ビルド成功\n");
+
+// exe
+    const exe = b.addExecutable("sonoda",null);
+    exe.setBuildMode(mode);
+
+    // ビルドターゲットを設定します。
+    const target = try Target.parse("armv8_5a-linux-gnueabihf");
+    exe.setTheTarget(target);
+
+    // システムライブラリをリンクします。
+    exe.addIncludeDir("WiringPi/wiringPi");
+    exe.linkSystemLibrary("c");
+
+    exe.addObjectFile("setup.o");
+    exe.addObjectFile("wiringPi.o");
+    exe.addObjectFile("piHiPri.o");
+    exe.addObjectFile("softPwm.o");
+    exe.addObjectFile("softTone.o");
+
+    exe.install();
+
+    const run_cmd = exe.run();
+    run_cmd.step.dependOn(b.getInstallStep());
+
+    const run_step = b.step("run", "Run the app");
+    run_step.dependOn(&run_cmd.step);
 }

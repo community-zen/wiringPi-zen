@@ -99,7 +99,7 @@ C言語のオブジェクト + ZEN言語のオブジェクトをリンクする�
 ```
 #### target.zen
 
-build.zenでターゲットを指定してコンパイルする際に以下のコードを使用する
+build.zenでターゲットを指定してコンパイルする際に以下のコードを使用する。  
 (参照:https://www.zen-lang.org/ja-JP/docs/ch10-build-script/)
 
 ```
@@ -108,7 +108,7 @@ const target = try Target.parse("armv7m-freestanding-eabi");
     // `exe`は実行ファイルビルドステップ
     exe.setTheTarget(target);
 ```
-
+[原因]
 問題は、この"Target.parse()"である。  
 サンプルコードをそのまま使用しても、パースエラーとなってしまう。  
 ので、以下のように修正した。  

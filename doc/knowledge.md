@@ -97,10 +97,11 @@ C言語のオブジェクト + ZEN言語のオブジェクトをリンクする�
 >>> defined at start.zen:85 ([PATH]/zen/lib/zen/std/special/start.zen:85)
 >>>            setup.o:(.text+0x24440)
 ```
-#### zen > std > target.zen.zen
+#### target.zen
 
 build.zenでターゲットを指定してコンパイルする際に以下のコードを使用する
 (参照:https://www.zen-lang.org/ja-JP/docs/ch10-build-script/)
+
 ```
 const target = try Target.parse("armv7m-freestanding-eabi");
 
@@ -108,21 +109,33 @@ const target = try Target.parse("armv7m-freestanding-eabi");
     exe.setTheTarget(target);
 ```
 
-[PAHT]zen/lib/zen/libc/glibc/sysdeps/arm/crtn.S
+問題は、この"Target.parse()"である。<\br>
+サンプルコードをそのまま使用しても、パースエラーとなってしまう。<\br>
+ので、以下のように修正した。<\br>
+[PAHT]/usr/local/bin/lib/zen/std/target.zen
 ```
-/* Always build .init and .fini sections in ARM mode.  */
-#define NO_THUMB
+    pub fn parseArchSub(text: []const u8) ParseArchSubError!Arch {
+        const info = @typeInfo(Arch);
+        inline for (info.Union.fields) |field| {
+            if (mem.equal(u8, text, field.name)) {
+                if (field.field_type == void) {
+                    return @is(Arch, @field(Arch, field.name));
+                }
+            }else{
+                if (field.field_type != void) {
+                    const sub_info = @typeInfo(field.field_type);
+                    inline for (sub_info.Enum.fields) |sub_field| {
+                        const combined = field.name ++ sub_field.name;
+                        if (mem.equal(u8, text, combined)) {
+                            return @unionInit(Arch, field.name, @field(field.field_type, sub_field.name));
+                        }
+                    }
+                }
+            }
+        }
+        return error.UnknownArchitecture;
+    }
+```
 
-// ↓ADD //
-#include <libc-symbols.h>
-
-#include <sysdep.h>
-```
-
-[原因]
-IS_IN (libc)が未定義だと出た。
-```
-error: function-like macro 'IS_IN' is not defined
-```
 ---
 

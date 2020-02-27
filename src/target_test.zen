@@ -1,0 +1,24 @@
+const std = @import("std");
+const equal = std.testing.equal;
+
+const Target = @import("std").build.Target;
+
+test "parseArchSub test" {
+
+    const parseArchSub = Target.parseArchSub;
+    // const parseArchSub = Target.o_parseArchSub;
+
+    // 正常処理
+    equal(parseArchSub("arc"),               @is(Target.Arch, @field(Target.Arch, "arc")) );
+    equal(parseArchSub("renderscript64"),    @is(Target.Arch, @field(Target.Arch, "renderscript64")) );
+
+    equal(parseArchSub("armv8_5a"),          @unionInit(Target.Arch, "arm",      @field(Target.Arch.Arm32,   "v8_5a")) );
+    equal(parseArchSub("armv8"),             @unionInit(Target.Arch, "arm",      @field(Target.Arch.Arm32,   "v8"))    );
+    equal(parseArchSub("armebv8"),           @unionInit(Target.Arch, "armeb",    @field(Target.Arch.Arm32,   "v8"))    );
+    equal(parseArchSub("kalimbav5"),         @unionInit(Target.Arch, "kalimba",  @field(Target.Arch.Kalimba, "v5"))    );
+
+    // 異常処理
+    equal(parseArchSub("armv8_5"),  Target.ParseArchSubError.UnknownArchitecture);
+    equal(parseArchSub("none"),     Target.ParseArchSubError.UnknownArchitecture);
+
+}

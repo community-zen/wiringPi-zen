@@ -3,161 +3,96 @@ const Builder = @import("std").build.Builder;
 const std = @import("std");
 
 pub fn build(b: *Builder) !void {
-    // const mode = b.standardReleaseOptions();
+    const mode = b.standardReleaseOptions();
     const target = try Target.parse("armv8_5a-linux-gnueabihf");
-
-    ///////////////////////////////////
-    //    Zen言語のソースをビルドする    //
-    ///////////////////////////////////
-    const exe = b.addExecutable("wiringPi-zenA", "setup.zen");
-    exe.addIncludeDir("WiringPi/wiringPi");
-    exe.linkSystemLibrary("c");
-    exe.setTheTarget(target);
-
-
-    ///////////////////////////////////
-    // wiringPi(Cライブラリをビルドする) //
-    ///////////////////////////////////
+    const c_path = "WiringPi/wiringPi/";
+    const c_format = ".c";
     const c_source = [_][]const u8{
-        "wiringPi.c",
-        "piHiPri.c",
-        "softTone.c",
-        "softPwm.c"
+        "wiringPi",
+        "piHiPri",
+        "softTone",
+        "softPwm"
     };
 
-    const c_path = "WiringPi/wiringPi/";
-
-    inline for(c_source) |source| {
-        const c_obj = b.addObject(source, null);
-        c_obj.addSystemIncludeDir(c_path);
-        c_obj.addCSourceFile(c_path ++ source, [_][]const u8{""});
-        c_obj.linkSystemLibrary("c");
-        c_obj.setTheTarget(target);
-
-        // c_obj.setOutputDir("./");
-
-        exe.addObject(c_obj);
-    }
+// setup exe //
+    // 実行バイナリを作成するステップ //
+    const exe = b.addExecutable("setup",null);
 
     // ビルドモードを設定 //
-    // exe.setBuildMode(mode);
+    exe.setBuildMode(mode);
 
     // ビルドターゲットを設定します。
     exe.setTheTarget(target);
 
-    // ビルド成果物を配置するディレクトリを設定 //
-    // exe.setOutputDir("./");
+    // インクルードディレクトリを設定 //
+    exe.addIncludeDir(c_path);
 
-    exe.install();
+    // システムライブラリのリンクを設定 //
+    exe.linkSystemLibrary("c");
 
-    // オブジェクトファイルを作成するステップ //
-    // const object_Setup = b.addObject("setup", "setup.zen");
-    // object_Setup.addIncludeDir("WiringPi/wiringPi");
-    // object_Setup.linkSystemLibrary("c");
-    // object_Setup.setTheTarget(target);
+// wiringPi.c obj //
 
-    // // C言語のソースファイルから実行ファイルをビルドする
-    // const exe = b.addExecutable("zen_crypto", null);
+    inline for(c_source) |source| {
+        // オブジェクトファイルを作成するステップ //
+        const object_wiringPi = b.addObject(source, null);
 
-    // // インクルードディレクトリを設定 //
-    // exe.addIncludeDir("WiringPi/wiringPi");
+        object_wiringPi.addCSourceFile(c_path ++ source ++ c_format ,[_][]const u8{"-c"});
 
-    // exe.addCSourceFile("WiringPi/wiringPi/piHiPri.c", [_][]const u8{""});
-    // exe.addCSourceFile("WiringPi/wiringPi/wiringPi.c", [_][]const u8{""});
-    // exe.addCSourceFile("WiringPi/wiringPi/softTone.c", [_][]const u8{""});
-    // exe.addCSourceFile("WiringPi/wiringPi/softPwm.c", [_][]const u8{""});
+        // ビルドモードを設定 //
+        object_wiringPi.setBuildMode(mode);
 
-    // // `crypto.zen`のオブジェクトファイルをビルド対象に追加する //
-    // exe.addObject(object_Setup);
+        // ビルドターゲットを設定 //
+        object_wiringPi.setTheTarget(target);
 
-    // // システムライブラリのリンクを設定 //
-    // exe.linkSystemLibrary("c");
+        // ビルド成果物を配置するディレクトリを設定 //
+        object_wiringPi.setOutputDir("./");
 
-    // // ビルドモードを設定 //
-    // exe.setBuildMode(mode);
+        // インクルードディレクトリを設定 //
+        object_wiringPi.addIncludeDir(c_path);
 
-    // // ビルドターゲットを設定します。
-    // exe.setTheTarget(target);
+        // システムライブラリのリンクを設定 //
+        object_wiringPi.linkSystemLibrary("c");
 
-    // exe.install();
-
-
-// piHiPri.c obj //
-    // // オブジェクトファイルを作成するステップ //
-    // const object_piHiPri = b.addObject("piHiPri", null);
-
-    // object_piHiPri.addCSourceFile("WiringPi/wiringPi/piHiPri.c",???);
-
-    // // ビルドモードを設定 //
-    // object_piHiPri.setBuildMode(mode);
-
-    // // ビルドターゲットを設定 //
-    // object_piHiPri.setTheTarget(target);
-
-    // // ビルド成果物を配置するディレクトリを設定 //
-    // object_piHiPri.setOutputDir("./");
-
-    // // インクルードディレクトリを設定 //
-    // object_piHiPri.addIncludeDir("WiringPi/wiringPi");
-
-    // // システムライブラリのリンクを設定 //
-    // object_piHiPri.linkSystemLibrary("c");
+        // オブジェクトファイルをビルド対象として追加 //
+        exe.addObject(object_wiringPi);
+    }
 
 // setup.zen obj //
     // オブジェクトファイルを作成するステップ //
-//     const object_Setup = b.addObject("setup", "setup.zen");
+    const object_Setup = b.addObject("setup", "setup.zen");
 
-//     // ビルドモードを設定 //
-//     object_Setup.setBuildMode(mode);
+    // ビルドモードを設定 //
+    object_Setup.setBuildMode(mode);
 
-//     // ビルドターゲットを設定 //
-//     object_Setup.setTheTarget(target);
+    // ビルドターゲットを設定 //
+    object_Setup.setTheTarget(target);
 
-//     // ビルド成果物を配置するディレクトリを設定 //
-//     object_Setup.setOutputDir("./");
+    // ビルド成果物を配置するディレクトリを設定 //
+    object_Setup.setOutputDir("./");
 
-//     // インクルードディレクトリを設定 //
-//     object_Setup.addIncludeDir("WiringPi/wiringPi");
+    // インクルードディレクトリを設定 //
+    object_Setup.addIncludeDir(c_path);
 
-//     // システムライブラリのリンクを設定 //
-//     object_Setup.linkSystemLibrary("c");
+    // システムライブラリのリンクを設定 //
+    object_Setup.linkSystemLibrary("c");
 
-// // setup exe //
-//     // 実行バイナリを作成するステップ //
-//     const exe = b.addExecutable("setup",null);
+// setup exe //
 
-//     // ビルドモードを設定 //
-//     exe.setBuildMode(mode);
+    // オブジェクトファイルをビルド対象として追加 //
+    exe.addObject(object_Setup);
 
-//     // ビルドターゲットを設定します。
-//     exe.setTheTarget(target);
+    // installステップでexeステップが実行されるように設定 //
+    exe.install();
 
-//     // インクルードディレクトリを設定 //
-//     exe.addIncludeDir("WiringPi/wiringPi");
+    // exeステップでの生成物を実行するrun_cmdステップを作成 //
+    const run_cmd = exe.run();
 
-//     // システムライブラリのリンクを設定 //
-//     exe.linkSystemLibrary("c");
+    // installステップとの依存関係を作成 //
+    run_cmd.step.dependOn(b.getInstallStep());
 
-//     // オブジェクトファイルをビルド対象として追加 //
-//     exe.addObjectFile("wiringPi.o");
-//     exe.addObjectFile("piHiPri.o");
-//     exe.addObjectFile("softPwm.o");
-//     exe.addObjectFile("softTone.o");
-//     // exe.addObject(object_piHiPri);
-//     exe.addObject(object_Setup);
+    // runステップを作成 //
+    const run_step = b.step("run", "Run the app");
 
-//     // installステップでexeステップが実行されるように設定 //
-//     exe.install();
-
-//     // exeステップでの生成物を実行するrun_cmdステップを作成 //
-//     const run_cmd = exe.run();
-
-//     // installステップとの依存関係を作成 //
-//     run_cmd.step.dependOn(b.getInstallStep());
-
-//     // runステップを作成 //
-//     const run_step = b.step("run", "Run the app");
-
-//     // run_cmdステップとの依存関係を作成 //
-//     run_step.dependOn(&run_cmd.step);
+    // run_cmdステップとの依存関係を作成 //
+    run_step.dependOn(&run_cmd.step);
 }

@@ -19,24 +19,48 @@ zen build-exe --object <オブジェクト> --name wiringPi-zen -target armv8_5a
 zen build-obj setup.zen -isystem WiringPi/wiringPi -target armv8_5a-linux-gnueabihf --library c
 ```
 
-### クロスコンパイルの準備(バグ?)
+### コンソールを用いてクロスコンパイルを行った際のバグ(??)
+
+[再現手段]
+以下のような方法でクロスコンパイルを行う。
+```
+# ①C言語ソースを用いて、オブジェクトを生成する
+zen build-obj --c-source <C言語ビルド対象ファイル> --library c -target armv8_5a-linux-gnueabihf
+
+# ②C言語ソースをZen言語で呼び出すsetup.zenをコンパイルする方法
+zen build-obj setup.zen -target armv8_5a-linux-gnueabihf --library c
+
+# ③オブジェクトを用いて、実行モジュールを生成する
+zen build-exe --object <オブジェクト> --name <名前> -target armv8_5a-linux-gnueabihf --library c
+```
 
 #### arm-features.h
 
-下記のフォルダに「arm-features.h」が不足している。
-[PAHT]zen/lib/zen/libc/glibc/sysdeps/arm/arm-features.h
-
-https://code.woboq.org/userspace/glibc/sysdeps/arm/arm-features.h.html
-
-[原因]
+[問題]
 arm-features.hが見つからない。
 ```
 Unable to open [PATH]/zen/lib/zen/libc/glibc/sysdeps/arm/arm-features.h
 : file not found
 ```
 
+[原因]
+下記のフォルダに「arm-features.h」が不足している。
+[PAHT]zen/lib/zen/libc/glibc/sysdeps/arm/arm-features.h
+
+https://code.woboq.org/userspace/glibc/sysdeps/arm/arm-features.h.html
+
+
+
 #### libc-symbols.h
 
+[問題]
+コンパイルコマンド②を行った際に、
+IS_IN (libc)が未定義だと出た。
+```
+error: function-like macro 'IS_IN' is not defined
+```
+
+[原因]
 下記のファイルに「libc-symbols.h」のinclude不足である。
 [PAHT]zen/lib/zen/libc/glibc/sysdeps/arm/crtn.S
 
@@ -50,14 +74,18 @@ Unable to open [PATH]/zen/lib/zen/libc/glibc/sysdeps/arm/arm-features.h
 #include <sysdep.h>
 ```
 
-[原因]
-IS_IN (libc)が未定義だと出た。
-```
-error: function-like macro 'IS_IN' is not defined
-```
-
 #### syscall.h
 
+[問題]
+「syscall.h」が見つからない。
+```
+fatal error: 'misc/bits/syscall.h' file not found
+#include <misc/bits/syscall.h>
+```
+「misc/bits/syscall.h」はlinuxでコンパイル時に自動生成されるが、
+Zen言語でクロスコンパイルしているから？自動生成されないため、コメントアウトとした。
+
+[原因/応急処置]
 下記のファイルにある、「syscall.h」が見つからない。
 そこで、コメントアウトする。
 
@@ -68,26 +96,9 @@ error: function-like macro 'IS_IN' is not defined
 // #include <misc/bits/syscall.h>
 ```
 
-[原因]
-「syscall.h」が見つからない。
-```
-fatal error: 'misc/bits/syscall.h' file not found
-#include <misc/bits/syscall.h>
-```
-「misc/bits/syscall.h」はlinuxでコンパイル時に自動生成されるが、
-Zen言語でクロスコンパイルしているから？自動生成されないため、コメントアウトとした。
-
 #### _start()関数が複数ある
 
-①[PATH]/zen/lib/zen/libc/glibc/sysdeps/arm/start.S
-②[PATH]/zen/lib/zen/std/special/start.zen
-①と②の両方に_start()関数がある為、リンクエラーが発生する
-
-[解決]
-①の「_start()」を「__start()」と変更する
-    →アンダーバーを2個に増やす
-
-[原因]
+[問題点]
 ```
 C言語のオブジェクト + ZEN言語のオブジェクトをリンクする時に、
 下記のエラーが発生する。
@@ -97,38 +108,101 @@ C言語のオブジェクト + ZEN言語のオブジェクトをリンクする�
 >>> defined at start.zen:85 ([PATH]/zen/lib/zen/std/special/start.zen:85)
 >>>            setup.o:(.text+0x24440)
 ```
+
+①[PATH]/zen/lib/zen/libc/glibc/sysdeps/arm/start.S
+②[PATH]/zen/lib/zen/std/special/start.zen
+①と②の両方に_start()関数がある為、リンクエラーが発生する
+
+[解決(仮)]
+①の「_start()」を「__start()」と変更する
+    →アンダーバーを2個に増やす
+
+
+### ビルドスクリプトを用いて、クロスコンパイルを行った際のバグ(??)
+
 #### target.zen
 
-build.zenでターゲットを指定してコンパイルする際に以下のコードを使用する。  
+[問題]
+"Target.parse()"でコンパイルエラーになる。
+
+[再現手順]
+①build.zenでクロスコンパイルの為に、ターゲットを指定する際に以下のコードを使用する。
 (参照:https://www.zen-lang.org/ja-JP/docs/ch10-build-script/)
 
 ```
 const target = try Target.parse("armv7m-freestanding-eabi");
 
-    // `exe`は実行ファイルビルドステップ
-    exe.setTheTarget(target);
+// `exe`は実行ファイルビルドステップ
+exe.setTheTarget(target);
 ```
+
+[現象]
+指定したターゲットが、”UnknownArchitecture”になる。
+以下にその時のメッセージを示す。
+```
+error: UnknownArchitecture
+/zen/lib/zen/std/target.zen:369:9: 0x10239f24f in _std.target.Target.parseArchSub (build.o)
+        return error.UnknownArchitecture;
+        ^
+/zen/lib/zen/std/target.zen:288:21: 0x102399f76 in _std.target.Target.parse (build.o)
+            .arch = try parseArchSub(arch_name),
+                    ^
+/wiringPi-zen/build.zen:7:20: 0x10238cc8d in _std.special.build (build.o)
+    const target = try Target.parse("armv8_5a-linux-gnueabihf");
+                   ^
+/zen/lib/zen/std/special/build_runner.zen:139:24: 0x1023845a4 in _runBuild (build.o)
+        .ErrorUnion => try root.build(builder),
+                       ^
+/zen/lib/zen/std/special/build_runner.zen:120:5: 0x102380e2e in _main.0 (build.o)
+    try runBuild(builder);
+    ^
+```
+
 [原因]
-問題は、この"Target.parse()"である。  
-サンプルコードをそのまま使用しても、パースエラーとなってしまう。  
-ので、以下のように修正した。  
-[PAHT]/usr/local/bin/lib/zen/std/target.zen
-```
+"Target.parse()"である。
+サンプルコードをそのまま使用しても、パースエラーとなってしまう。
+
+○既存のコード
+``` /usr/local/bin/lib/zen/std/target.zen
     pub fn parseArchSub(text: []const u8) ParseArchSubError!Arch {
         const info = @typeInfo(Arch);
         inline for (info.Union.fields) |field| {
             if (mem.equal(u8, text, field.name)) {
+            /* ↑サブアーキテクチャを含むアーキテクチャの場合、この分岐に入ってこない */
                 if (field.field_type == void) {
                     return @is(Arch, @field(Arch, field.name));
-                }
-            }else{
-                if (field.field_type != void) {
+                } else {
                     const sub_info = @typeInfo(field.field_type);
                     inline for (sub_info.Enum.fields) |sub_field| {
                         const combined = field.name ++ sub_field.name;
                         if (mem.equal(u8, text, combined)) {
                             return @unionInit(Arch, field.name, @field(field.field_type, sub_field.name));
                         }
+                    }
+                    return error.UnknownSubArchitecture;
+                }
+            }
+        }
+        return error.UnknownArchitecture;
+    }
+```
+
+○改善案コード
+※ただし、サブアーキテクチャが存在しない判定は出来ない...
+```
+    pub fn parseArchSub(text: []const u8) ParseArchSubError!Arch {
+        const info = @typeInfo(Arch);
+        inline for (info.Union.fields) |field| {
+            if (field.field_type == void) {
+                if (mem.equal(u8, text, field.name)) {
+                    return @is(Arch, @field(Arch, field.name));
+                }
+            }else{
+                const sub_info = @typeInfo(field.field_type);
+                inline for (sub_info.Enum.fields) |sub_field| {
+                    const combined = field.name ++ sub_field.name;
+                    if (mem.equal(u8, text, combined)) {
+                        return @unionInit(Arch, field.name, @field(field.field_type, sub_field.name));
                     }
                 }
             }

@@ -213,3 +213,69 @@ error: UnknownArchitecture
 
 ---
 
+
+### ビルドスクリプトを用いて、Cソースファイルをビルド対象として追加した際にclangオプションを空白にするとエラーになる
+
+#### build.zen
+
+[問題]
+以下のコンパイルエラーになる。
+```
+Unable to hash /Users/ユーザー名/Documents/wiringPi-zen/src: is directory
+The following command exited with error code 1:
+/Users/ユーザー名/Documents/zen/zen build-obj --c-source  /Users/ユーザー名/Documents/wiringPi-zen/WiringPi/wiringPi/wiringPi.c --library c --cache-dir /Users/ユーザー名/Documents/wiringPi-zen/zen-cache --name wiringPi -target armv8_5a-linux-gnueabihf -I /Users/ユーザー名/Documents/wiringPi-zen/WiringPi/wiringPi --cache on
+
+Build failed. The following command failed:
+/Users/ユーザー名/Documents/wiringPi-zen/zen-cache/o/TYamzctfe_c6SmNfB2M8A8wUHVCP9hfen_U8seBc0fXe9eZ5obvICAg9_vcVj0DA/build /Users/ユーザー名/Documents/zen/zen /Users/ユーザー名/Documents/wiringPi-zen /Users/ユーザー名/Documents/wiringPi-zen/zen-cache
+```
+
+[再現手順]
+①build.zenCソースファイルをビルド対象とする為に、以下のステップ(コード)を使用する。
+(参照:https://www.zen-lang.org/ja-JP/docs/ch10-build-script/)
+
+```
+object_wiringPi.addCSourceFile(ファイルパス,[_][]const u8{""});
+```
+
+[現象]
+clangオプションを空白("")にするとコンパイルエラーになる。
+("-O2"などのオプションを指定した場合は、コンパイルエラーにならないことは確認済み)
+
+[原因]
+"LibExeObjStep.make(step: *Step)"である。
+空白文字をappendすることによって、異常が発生している(??)
+
+○既存のコード
+``` /usr/local/bin/lib/zen/std/build.zen
+    fn make(step: *Step) !void {
+        ...略...
+        LinkObject.CSourceFile => |c_source_file| {
+            try zen_args.append("--c-source");
+            for (c_source_file.args) |arg| {
+                try zen_args.append(arg);
+            }
+            try zen_args.append(self.builder.pathFromRoot(c_source_file.source_path));
+        },
+        ...略...
+    }
+```
+
+○改善案コード
+オプションを指定していない=オプションの文字列長が0の場合、appendしないようにすることでオプションなしにも対応する
+```
+    fn make(step: *Step) !void {
+        ...略...
+        LinkObject.CSourceFile => |c_source_file| {
+            try zen_args.append("--c-source");
+            for (c_source_file.args) |arg| {
+                if ( 0!=arg.len ){
+                    try zen_args.append(arg);
+                }
+            }
+            try zen_args.append(self.builder.pathFromRoot(c_source_file.source_path));
+        },
+        ...略...
+    }
+```
+---
+

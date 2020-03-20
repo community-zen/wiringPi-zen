@@ -44,7 +44,7 @@ Unable to open [PATH]/zen/lib/zen/libc/glibc/sysdeps/arm/arm-features.h
 ```
 
 [原因]
-下記のフォルダに「arm-features.h」が不足している。
+下記のフォルダに「arm-features.h」が不足している。  
 [PAHT]zen/lib/zen/libc/glibc/sysdeps/arm/arm-features.h
 
 https://code.woboq.org/userspace/glibc/sysdeps/arm/arm-features.h.html

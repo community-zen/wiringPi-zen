@@ -123,7 +123,9 @@ C言語のオブジェクト + ZEN言語のオブジェクトをリンクする�
 #### target.zen
 
 [問題]
-"Target.parse()"でコンパイルエラーになる。
+クロスコンパイルでサブアーキテクチャを含むアーキテクチャを指定した場合、
+"Target.parse()"でコンパイルエラーになる
+
 
 [再現手順]
 ①build.zenでクロスコンパイルの為に、ターゲットを指定する際に以下のコードを使用する。
@@ -219,7 +221,24 @@ error: UnknownArchitecture
 #### build.zen
 
 [問題]
-以下のコンパイルエラーになる。
+addCSourceFileの第二引数のビルドオプションを
+指定しないでコンパイルを行うと、コンパイルエラーになる。
+
+[再現手順]
+①build.zenCソースファイルをビルド対象とする為に、以下のステップ(コード)を使用する。
+(参照:https://www.zen-lang.org/ja-JP/docs/ch10-build-script/)
+
+```
+/*略*/
+const object = b.addObject(Cソース名, null);
+object.addCSourceFile(ファイルパス,[_][]const u8{""});
+/*略*/
+```
+
+[現象]
+clangビルドオプションを空白("")にすると以下のコンパイルエラーになる。
+("-O2"などのオプションを指定した場合は、コンパイルエラーにならないことは確認済み)
+
 ```
 Unable to hash /Users/ユーザー名/Documents/wiringPi-zen/src: is directory
 The following command exited with error code 1:
@@ -229,21 +248,12 @@ Build failed. The following command failed:
 /Users/ユーザー名/Documents/wiringPi-zen/zen-cache/o/TYamzctfe_c6SmNfB2M8A8wUHVCP9hfen_U8seBc0fXe9eZ5obvICAg9_vcVj0DA/build /Users/ユーザー名/Documents/zen/zen /Users/ユーザー名/Documents/wiringPi-zen /Users/ユーザー名/Documents/wiringPi-zen/zen-cache
 ```
 
-[再現手順]
-①build.zenCソースファイルをビルド対象とする為に、以下のステップ(コード)を使用する。
-(参照:https://www.zen-lang.org/ja-JP/docs/ch10-build-script/)
-
-```
-object_wiringPi.addCSourceFile(ファイルパス,[_][]const u8{""});
-```
-
-[現象]
-clangオプションを空白("")にするとコンパイルエラーになる。
-("-O2"などのオプションを指定した場合は、コンパイルエラーにならないことは確認済み)
-
 [原因]
 "LibExeObjStep.make(step: *Step)"である。
-空白文字をappendすることによって、異常が発生している(??)
+空白文字をzen_argsにappendされることで、
+コンパイル時に正しくコマンドが解釈されず異常が発生している(??)
+(zen_argsは、buildスクリプトがコマンドを生成し、格納する領域??)
+
 
 ○既存のコード
 ``` /usr/local/bin/lib/zen/std/build.zen
@@ -260,8 +270,10 @@ clangオプションを空白("")にするとコンパイルエラーになる�
     }
 ```
 
-○改善案コード
-オプションを指定していない=オプションの文字列長が0の場合、appendしないようにすることでオプションなしにも対応する
+○改善案(1)コード
+空白が入った場合はzen_argsに登録しない。
+
+オプションを指定していない=オプションの文字列長が0の場合、appendしないようにすることでオプションなしにも対応する。
 ```
     fn make(step: *Step) !void {
         ...略...
@@ -278,4 +290,8 @@ clangオプションを空白("")にするとコンパイルエラーになる�
     }
 ```
 ---
+
+○改善案(2)
+zen_argsに空白が入った場合も、
+コマンドが正しく解釈される(メッセージを出すなど)
 

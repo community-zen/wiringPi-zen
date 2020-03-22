@@ -3,10 +3,13 @@ const Builder = @import("std").build.Builder;
 const std = @import("std");
 
 pub fn build(b: *Builder) !void {
-    const mode = b.standardReleaseOptions();
+
+    // Raspberry Pi 3+を設定する //
     const target = try Target.parse("armv8_5a-linux-gnueabihf");
+    // コマンドラインから-Drelease-safe / -Drelease-fast / -Drelease-safeのいずれかを選択できるようになる //
+    const mode = b.standardReleaseOptions();
+
     const c_path = "WiringPi/wiringPi/";
-    const c_format = ".c";
     const c_source = [_][]const u8{
         "wiringPi",
         "piHiPri",
@@ -14,85 +17,69 @@ pub fn build(b: *Builder) !void {
         "softPwm"
     };
 
-// setup exe //
-    // 実行バイナリを作成するステップ //
-    const exe = b.addExecutable("setup",null);
-
+    ////////////////////////////////////////////////////
+    // コンパイルを行う、実行ステップを作成する             //
+    // 実行ステップにオプションを設定し、install()で実行する //
+    ////////////////////////////////////////////////////
+    const exe = b.addExecutable("wiringPi-zen",null);
     // ビルドモードを設定 //
     exe.setBuildMode(mode);
-
-    // ビルドターゲットを設定します。
+    // ビルドターゲットを設定します。 //
     exe.setTheTarget(target);
-
     // インクルードディレクトリを設定 //
+    // WiringPiのヘッダーPATHを設定 //
     exe.addIncludeDir(c_path);
-
     // システムライブラリのリンクを設定 //
+    // C言語の標準ライブラリPATHを設定 //
     exe.linkSystemLibrary("c");
 
-// wiringPi.c obj //
 
+    // Wiring Pi ライブラリのコンパイル //
     inline for(c_source) |source| {
-        // オブジェクトファイルを作成するステップ //
-        const object_wiringPi = b.addObject(source, null);
-
-        object_wiringPi.addCSourceFile(c_path ++ source ++ c_format ,[_][]const u8{"-c"});
-
+        // WiringPiのソースからオブジェクトを生成するステップを作成する //
+        // 生成したオブジェクトを実行ステップに加えることでコンパイルを行う //
+        const objWiring = b.addObject(source, null);
+        objWiring.addCSourceFile(c_path ++ source ++ ".c", [_][]const u8{""});
         // ビルドモードを設定 //
-        object_wiringPi.setBuildMode(mode);
-
+        objWiring.setBuildMode(mode);
         // ビルドターゲットを設定 //
-        object_wiringPi.setTheTarget(target);
-
+        objWiring.setTheTarget(target);
         // ビルド成果物を配置するディレクトリを設定 //
-        object_wiringPi.setOutputDir("./");
-
+        objWiring.setOutputDir("./zen-cache/wiring");
         // インクルードディレクトリを設定 //
-        object_wiringPi.addIncludeDir(c_path);
-
+        objWiring.addIncludeDir(c_path);
         // システムライブラリのリンクを設定 //
-        object_wiringPi.linkSystemLibrary("c");
-
+        objWiring.linkSystemLibrary("c");
         // オブジェクトファイルをビルド対象として追加 //
-        exe.addObject(object_wiringPi);
+        exe.addObject(objWiring);
     }
 
-// setup.zen obj //
     // オブジェクトファイルを作成するステップ //
     const object_Setup = b.addObject("setup", "setup.zen");
-
     // ビルドモードを設定 //
     object_Setup.setBuildMode(mode);
-
     // ビルドターゲットを設定 //
     object_Setup.setTheTarget(target);
-
     // ビルド成果物を配置するディレクトリを設定 //
     object_Setup.setOutputDir("./");
-
     // インクルードディレクトリを設定 //
     object_Setup.addIncludeDir(c_path);
-
     // システムライブラリのリンクを設定 //
     object_Setup.linkSystemLibrary("c");
 
-// setup exe //
 
     // オブジェクトファイルをビルド対象として追加 //
     exe.addObject(object_Setup);
-
-    // installステップでexeステップが実行されるように設定 //
+    // コンパイルを実行する //
     exe.install();
+
 
     // exeステップでの生成物を実行するrun_cmdステップを作成 //
     const run_cmd = exe.run();
-
     // installステップとの依存関係を作成 //
     run_cmd.step.dependOn(b.getInstallStep());
-
     // runステップを作成 //
     const run_step = b.step("run", "Run the app");
-
     // run_cmdステップとの依存関係を作成 //
     run_step.dependOn(&run_cmd.step);
 }

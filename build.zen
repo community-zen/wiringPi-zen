@@ -32,6 +32,8 @@ pub fn build(b: *Builder) !void {
     // システムライブラリのリンクを設定 //
     // C言語の標準ライブラリPATHを設定 //
     exe.linkSystemLibrary("c");
+    // 出力ディレクトリの設定 //
+    exe.setOutputDir("./");
 
 
     // Wiring Pi ライブラリのコンパイル //
@@ -55,13 +57,13 @@ pub fn build(b: *Builder) !void {
     }
 
     // オブジェクトファイルを作成するステップ //
-    const object_Setup = b.addObject("setup", "setup.zen");
+    const object_Setup = b.addObject("main", "src/main.zen");
     // ビルドモードを設定 //
     object_Setup.setBuildMode(mode);
     // ビルドターゲットを設定 //
     object_Setup.setTheTarget(target);
     // ビルド成果物を配置するディレクトリを設定 //
-    object_Setup.setOutputDir("./");
+    object_Setup.setOutputDir("./zen-cache/wiring");
     // インクルードディレクトリを設定 //
     object_Setup.addIncludeDir(c_path);
     // システムライブラリのリンクを設定 //
@@ -74,12 +76,12 @@ pub fn build(b: *Builder) !void {
     exe.install();
 
 
-    // exeステップでの生成物を実行するrun_cmdステップを作成 //
-    const run_cmd = exe.run();
-    // installステップとの依存関係を作成 //
-    run_cmd.step.dependOn(b.getInstallStep());
-    // runステップを作成 //
-    const run_step = b.step("run", "Run the app");
-    // run_cmdステップとの依存関係を作成 //
-    run_step.dependOn(&run_cmd.step);
+    // // exeステップでの生成物を実行するrun_cmdステップを作成 //
+    // const run_cmd = exe.run();
+    // // installステップとの依存関係を作成 //
+    // run_cmd.step.dependOn(b.getInstallStep());
+    // // runステップを作成 //
+    // const run_step = b.step("run", "Run the app");
+    // // run_cmdステップとの依存関係を作成 //
+    // run_step.dependOn(&run_cmd.step);
 }

@@ -1,10 +1,44 @@
-const std = @import("std");
-const testing = std.testing;
+const c = @cImport ({
+    @cInclude("wiringPi.h");
+});
 
-export fn add(a: i32, b: i32) i32 {
-    return a + b;
+const std = @import("std");
+
+const LED = 0;
+
+pub fn main() anyerror!void {
+
+    const stdout = try std.fs.getStdOut();
+
+    try stdout.write("Raspberry Pi Blink\n");
+
+    wiringPiSetup();
+    pinMode(LED, c.OUTPUT);
+
+    while (true) {
+        digitalWrite(LED, c.HIGH);
+        try stdout.write("Raspberry Pi Blink[ON]\n");
+        delay(500);
+
+        digitalWrite(LED, c.LOW);
+        try stdout.write("Raspberry Pi Blink[OFF]\n");
+        delay(500);
+    }
+
 }
 
-test "basic add functionality" {
-    testing.ok(add(3, 7) == 10);
+pub fn wiringPiSetup() void {
+    _ = c.wiringPiSetup();
+}
+
+pub fn pinMode(pin: c_int, mode: c_int) void {
+    _ = c.pinMode(pin, mode);
+}
+
+pub fn digitalWrite(pin: c_int, value: c_int) void {
+    _ = c.pinMode(pin, value);
+}
+
+pub fn delay(howLong: c_uint) void {
+    _ = c.delay(howLong);
 }

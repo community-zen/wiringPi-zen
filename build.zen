@@ -4,6 +4,8 @@ const std = @import("std");
 
 pub fn build(b: *Builder) !void {
 
+    b.verbose = true;
+
     // Raspberry Pi 3+を設定する //
     const target = try Target.parse("armv8_5a-linux-gnueabihf");
     // コマンドラインから-Drelease-safe / -Drelease-fast / -Drelease-safeのいずれかを選択できるようになる //

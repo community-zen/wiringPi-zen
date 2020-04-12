@@ -7,7 +7,7 @@ pub fn build(b: *Builder) !void {
     b.verbose = true;
 
     // Raspberry Pi 3+を設定する //
-    const target = try Target.parse("armv8_5a-linux-gnueabihf");
+    const target = try Target.parse("armv7-linux-gnueabihf");
     // コマンドラインから-Drelease-safe / -Drelease-fast / -Drelease-safeのいずれかを選択できるようになる //
     const mode = b.standardReleaseOptions();
 

@@ -1,0 +1,52 @@
+const std = @import("std");
+const ok = std.testing.ok;
+const testing = std.testing;
+const fs = std.fs;
+
+const heap = std.heap;
+const Allocator = heap.Allocator;
+
+pub const CZenChika = struct {
+    mDebug : bool = false,
+
+    const mSelf = @This();
+    var mSetuped = false;
+
+
+    fn zenChikaSetup(self: mSelf)  ![]u8 {
+
+        const file = try fs.File.openRead("sample.txt");
+        defer file.close();
+
+        const size = @intCast(usize, try file.getEndPos());
+
+        const buffer = try heap.alloc(heap.direct_allocator, u8, size);
+        defer heap.free(heap.direct_allocator, buffer);
+
+        const read = try file.read(buffer);
+
+        return buffer;
+
+    }
+};
+
+test "zenChikaSetup" {
+
+    const stdout = try std.fs.getStdOut();
+    try stdout.write("zenChikaSetup\n");
+
+    const zenChika = CZenChika{.mDebug = true};
+    const sampleText = zenChika.zenChikaSetup();
+
+    if (sampleText) |value| {
+        // testing.equal(5, value.len);
+
+        try stdout.write(value);
+        try stdout.write("ok\n");
+
+    } else |err| {
+        // do nothing
+        try stdout.write("err");
+        try stdout.write("\n");
+    }
+}

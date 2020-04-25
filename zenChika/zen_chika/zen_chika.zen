@@ -2,9 +2,10 @@ const std = @import("std");
 const ok = std.testing.ok;
 const testing = std.testing;
 const fs = std.fs;
-
 const heap = std.heap;
 const Allocator = heap.Allocator;
+const mem = std.mem;
+const math = std.math;
 
 pub const CZenChika = struct {
     mDebug : bool = false,
@@ -12,41 +13,186 @@ pub const CZenChika = struct {
     const mSelf = @This();
     var mSetuped = false;
 
+    pub const Type = enum {
+        a,
+        b,
+        aplus,
+        bplus,
+        b2,
+        alpha_ep,//EP=(early prototype)
+        cm1,
+        b3,
+        zero,
+        cm3,
+        zero_w,
+        b3plus,
+        a3plus,
+        iuo,//Internal use only
+        cm3plus,
+        b4,
+    };
 
+    const Processor = enum {
+        BCM2835,
+        BCM2836,
+        BCM2837,
+        BCM2711,
+    };
+
+    const Memorysize = enum {
+        _256MB,
+        _512MB,
+        _1GB,
+        _2GB,
+        _4GB,
+    };
+
+    const Manufacturer = enum {
+        SonyUK,
+        Egoman,
+        Embest,
+        SonyJapan,
+        Embest,
+        Stadium,
+    };
+
+    //RevisionInfo
+    var mBRev      : u64  = undefined;
+    var mBType     : u64  = undefined;
+    var mBProc     : u64  = undefined;
+    var mBMfg      : u64  = undefined;
+    var mBMem      : u64  = undefined;
+    var mBWarranty : bool = undefined;
+
+    ///////////////////////////////////////////
+    // @brief  cpuinfoを読み込み、内容を返す
+    // @note
+    //   allocで確保した領域の開放について
+    //    正常終了 -> 呼び出し元で開放
+    //    異常終了 -> この関数内で開放
+    ///////////////////////////////////////////
     fn zenChikaSetup(self: mSelf)  ![]u8 {
 
-        const file = try fs.File.openRead("sample.txt");
+        const file = try fs.File.openRead("/Users/endy/ZenProject/ZenChika/zen_chika/cpuinfo.txt");//本来のpathは"/proc/cpuinfo"
         defer file.close();
-
         const size = @intCast(usize, try file.getEndPos());
-
-        const buffer = try heap.alloc(heap.direct_allocator, u8, size);
-        defer heap.free(heap.direct_allocator, buffer);
-
+        const buffer = try heap.alloc(heap.direct_allocator, u8, size);//ファイルの中身を置くためのメモリ確保
         const read = try file.read(buffer);
-
-        return buffer;
+        errdefer heap.free(heap.direct_allocator, value);//異常終了の場合はここでメモリ開放
+        return read;
 
     }
+
+    ///////////////////////////////////////////
+    // @brief  検索文字列から始まる一行を特定し、その後に続く改行文字までの内容を返す
+    // @note
+    //   検索文字列から始まる一行が複数行あった場合は、初めにヒットしたものが選択される
+    ///////////////////////////////////////////
+    fn zenChikaSerch(self: mSelf,value:[]const u8,serchWord:[]const u8)  []const u8 {
+
+        var i       : u64 = 0;
+        var start   : u64 = 0;//一行の最初のインデックス
+
+        while (i < value.len) {
+            if(value[i] == '\n'){
+                const slice = value[start..i];//一行をスライス型で取得
+                if(slice.len > serchWord.len){//一行が検索文字列よりも長いこと
+                    if( mem.startsWith(u8, slice, serchWord) ){//一行の先頭が検索文字列と一致するか
+                        return slice[serchWord.len..];//一行の中から検索文字列を削除した残りを返す
+                    }
+                }
+                start = i + 1;
+            }
+            i += 1;
+        }
+        return value;
+    }
+
+    ///////////////////////////////////////////
+    // @brief  文字列を数値型にキャストする
+    // @note
+    //   第二引数として与えた進数に基づいて変換する
+    ///////////////////////////////////////////
+    fn sliceToNum(self: mSelf,str:[]const u8,base:u8)  u64 {
+
+        var i       : u64 = 0;
+        var sumNum  : u64 = 0;
+        const numberOffset   = 0;
+        const alphabetOffset = 10;
+
+        while( i < str.len ) {
+            var num : u64 = 0;
+            if( (str[i] >= '0') and (str[i] <= '9') ){
+
+                num = (str[i] - '0' + numberOffset);//アスキー表から文字列を数値に変換
+
+            } else if( (str[i] >= 'a') and (str[i] <= 'z') ){
+
+                num = (str[i] - 'a' + alphabetOffset);//アスキー表から文字列を数値に変換
+
+            } else {
+                std.debug.warn("数値にキャストできる文字列ではありません。\n");
+            }
+            sumNum += num * math.pow(u64, base, str.len-i-1);//指定された進数で計算
+            i+=1;
+        }
+        return sumNum;
+    }
+
+    ///////////////////////////////////////////
+    // @brief  Revision情報を取得
+    // @note
+    //  -
+    ///////////////////////////////////////////
+    fn getRevisionInfo(self: mSelf,revisionInfo:u64)  void {
+
+        mBRev      = (revisionInfo & (0x0F <<  0)) >>  0 ;
+        mBType     = (revisionInfo & (0xFF <<  4)) >>  4 ;
+        mBProc     = (revisionInfo & (0x0F << 12)) >> 12 ; // Not used for now.
+        mBMfg      = (revisionInfo & (0x0F << 16)) >> 16 ;
+        mBMem      = (revisionInfo & (0x07 << 20)) >> 20 ;
+        mBWarranty = (revisionInfo & (0x03 << 24)) != 0  ;
+
+        std.debug.warn("bRev = {}\n", mBRev);
+        std.debug.warn("bType = {}\n", mBType);
+        std.debug.warn("bProc = {}\n", mBProc);
+        std.debug.warn("bMfg = {}\n", mBMfg);
+        std.debug.warn("bMem = {}\n", mBMem);
+        std.debug.warn("bWarranty = {}\n", mBWarranty);
+    }
 };
+
+
+
 
 test "zenChikaSetup" {
 
     const stdout = try std.fs.getStdOut();
-    try stdout.write("zenChikaSetup\n");
+    try stdout.write("\nzenChikaSetup Start!\n");
 
     const zenChika = CZenChika{.mDebug = true};
-    const sampleText = zenChika.zenChikaSetup();
 
-    if (sampleText) |value| {
-        // testing.equal(5, value.len);
-
-        try stdout.write(value);
-        try stdout.write("ok\n");
-
-    } else |err| {
-        // do nothing
+    const value = zenChika.zenChikaSetup() catch |err| {//zenChikaSetupに失敗した場合は、終了
         try stdout.write("err");
         try stdout.write("\n");
-    }
+        return;
+    };
+
+    defer heap.free(heap.direct_allocator, value); //zenChikaSetup(正常系)のメモリ開放
+
+    try stdout.write("zenChikaSetup Finished!\n");
+
+    const HardwareName = zenChika.zenChikaSerch(value,"Hardware\t: "[0..]);//ハードウェアの名前を取得
+    try stdout.write(HardwareName);
+    try stdout.write("\n");
+
+    const RevisionName = zenChika.zenChikaSerch(value,"Revision\t: "[0..]);//リビジョン情報を取得
+    try stdout.write(RevisionName);
+    try stdout.write("\n");
+
+    const RevisionNum = zenChika.sliceToNum(RevisionName,16) ;//リビジョン情報を整数型に変換
+    std.debug.warn("{}\n", RevisionNum);
+    try stdout.write("\n");
+
+    zenChika.getRevisionInfo(RevisionNum) ;//リビジョン情報をそれぞれの要素に分割して表示(本来は列挙型のタグ名を表示したい・・・)
 }

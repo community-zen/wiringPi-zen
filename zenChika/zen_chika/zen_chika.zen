@@ -6,6 +6,8 @@ const heap = std.heap;
 const Allocator = heap.Allocator;
 const mem = std.mem;
 const math = std.math;
+const os = std.os;
+
 
 pub const CZenChika = struct {
     mDebug : bool = false,
@@ -73,14 +75,41 @@ pub const CZenChika = struct {
     ///////////////////////////////////////////
     fn zenChikaSetup(self: mSelf)  ![]u8 {
 
-        const file = try fs.File.openRead("/Users/endy/ZenProject/ZenChika/zen_chika/cpuinfo.txt");//本来のpathは"/proc/cpuinfo"
+        const file = try fs.File.openRead("/Users/endy/ZenProject/ZenChika/zen_chika/cpuinfo");//本来のpathは"/proc/cpuinfo"
         defer file.close();
         const size = @intCast(usize, try file.getEndPos());
         const buffer = try heap.alloc(heap.direct_allocator, u8, size);//ファイルの中身を置くためのメモリ確保
         const read = try file.read(buffer);
-        errdefer heap.free(heap.direct_allocator, value);//異常終了の場合はここでメモリ開放
+        errdefer heap.free(heap.direct_allocator, buffer);//異常終了の場合はここでメモリ開放
         return read;
 
+    }
+
+    ///////////////////////////////////////////
+    // @brief  memを読み込み、mmap
+    // @note
+    //   確保した領域の開放について
+    //    正常終了 -> 呼び出し元で開放
+    //    異常終了 -> この関数内で開放
+    ///////////////////////////////////////////
+    fn zenChikaMmap(self: mSelf)  ![]u8 {
+        // const PERI_BASE = 0x3F000000;
+        // const GPIO_BASE = (PERI_BASE + 0x200000); // GPIO controller
+        const fd = try os.open("/Users/endy/ZenProject/ZenChika/zen_chika/mem", 0, os.O_RDONLY);
+        errdefer os.close(fd);
+        const size_fd = @intCast(usize, (try os.fstat(fd)).size);
+
+        const bytes = try os.mmap(
+            null,
+            mem.alignForward(size_fd, mem.page_size),
+            os.PROT_READ,
+            os.MAP_SHARED,
+            fd,
+            0,
+            // GPIO_BASE,
+        );
+        errdefer os.munmap(bytes);
+        return bytes;
     }
 
     ///////////////////////////////////////////
@@ -172,21 +201,21 @@ test "zenChikaSetup" {
 
     const zenChika = CZenChika{.mDebug = true};
 
-    const value = zenChika.zenChikaSetup() catch |err| {//zenChikaSetupに失敗した場合は、終了
-        try stdout.write("err");
+    const valueCpuInfo = zenChika.zenChikaSetup() catch |err| {//zenChikaSetupに失敗した場合は、終了
+        try stdout.write("err_zenChikaSetup");
         try stdout.write("\n");
         return;
     };
 
-    defer heap.free(heap.direct_allocator, value); //zenChikaSetup(正常系)のメモリ開放
+    defer heap.free(heap.direct_allocator, valueCpuInfo); //zenChikaSetup(正常系)のメモリ開放
 
     try stdout.write("zenChikaSetup Finished!\n");
 
-    const HardwareName = zenChika.zenChikaSerch(value,"Hardware\t: "[0..]);//ハードウェアの名前を取得
+    const HardwareName = zenChika.zenChikaSerch(valueCpuInfo,"Hardware\t: "[0..]);//ハードウェアの名前を取得
     try stdout.write(HardwareName);
     try stdout.write("\n");
 
-    const RevisionName = zenChika.zenChikaSerch(value,"Revision\t: "[0..]);//リビジョン情報を取得
+    const RevisionName = zenChika.zenChikaSerch(valueCpuInfo,"Revision\t: "[0..]);//リビジョン情報を取得
     try stdout.write(RevisionName);
     try stdout.write("\n");
 
@@ -195,4 +224,14 @@ test "zenChikaSetup" {
     try stdout.write("\n");
 
     zenChika.getRevisionInfo(RevisionNum) ;//リビジョン情報をそれぞれの要素に分割して表示(本来は列挙型のタグ名を表示したい・・・)
+
+    const valueMem = zenChika.zenChikaMmap() catch |err| {//zenChikaMemReadに失敗した場合は、終了
+        try stdout.write("err_zenChikaMemRead\n");
+        try stdout.write("\n");
+        ok(err == os.MMapError.AccessDenied);
+        return;
+    };
+
+    defer heap.free(heap.direct_allocator, valueMem); //zenChikaMemRead(正常系)のメモリ開放
+
 }

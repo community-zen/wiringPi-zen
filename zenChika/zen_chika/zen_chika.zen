@@ -75,12 +75,16 @@ pub const CZenChika = struct {
     ///////////////////////////////////////////
     fn zenChikaSetup(self: mSelf)  ![]u8 {
 
-        const file = try fs.File.openRead("/Users/endy/ZenProject/ZenChika/zen_chika/cpuinfo");//本来のpathは"/proc/cpuinfo"
+        const file = try fs.File.openRead("/proc/cpuinfo");//本来のpathは"/proc/cpuinfo"
         defer file.close();
-        const size = @intCast(usize, try file.getEndPos());
+        // const size = @intCast(usize, try file.getEndPos());
+        const size = 1500;
         const buffer = try heap.alloc(heap.direct_allocator, u8, size);//ファイルの中身を置くためのメモリ確保
         const read = try file.read(buffer);
         errdefer heap.free(heap.direct_allocator, buffer);//異常終了の場合はここでメモリ開放
+
+        std.debug.warn("取得した文字列の長さ = {}\n", file.getEndPos());
+
         return read;
 
     }
@@ -92,23 +96,30 @@ pub const CZenChika = struct {
     //    正常終了 -> 呼び出し元で開放
     //    異常終了 -> この関数内で開放
     ///////////////////////////////////////////
-    fn zenChikaMmap(self: mSelf)  ![]u8 {
-        // const PERI_BASE = 0x3F000000;
-        // const GPIO_BASE = (PERI_BASE + 0x200000); // GPIO controller
-        const fd = try os.open("/Users/endy/ZenProject/ZenChika/zen_chika/mem", 0, os.O_RDONLY);
+    fn zenChikaMmap(self: mSelf)  ![]align(mem.page_size) u8 {
+        const PERI_BASE = 0x3F000000;
+        const GPIO_BASE = (PERI_BASE + 0x200000); // GPIO controller
+        const BLOCK_SIZE = (4 * 1024);
+        const fd = try os.open("/dev/mem", 0, os.O_RDWR | os.O_SYNC | os.O_CLOEXEC);
         errdefer os.close(fd);
-        const size_fd = @intCast(usize, (try os.fstat(fd)).size);
+        // const size_fd = @intCast(usize, (try os.fstat(fd)).size);
+
+        std.debug.warn("/dev/mem ok\n");
 
         const bytes = try os.mmap(
             null,
-            mem.alignForward(size_fd, mem.page_size),
-            os.PROT_READ,
+            // mem.alignForward(size_fd, mem.page_size),
+            BLOCK_SIZE,
+            os.PROT_READ | os.PROT_WRITE,
             os.MAP_SHARED,
             fd,
-            0,
-            // GPIO_BASE,
+            // 0,
+            GPIO_BASE,
         );
         errdefer os.munmap(bytes);
+
+
+
         return bytes;
     }
 
@@ -119,8 +130,8 @@ pub const CZenChika = struct {
     ///////////////////////////////////////////
     fn zenChikaSerch(self: mSelf,value:[]const u8,serchWord:[]const u8)  []const u8 {
 
-        var i       : u64 = 0;
-        var start   : u64 = 0;//一行の最初のインデックス
+        var i       : usize = 0;
+        var start   : usize = 0;//一行の最初のインデックス
 
         while (i < value.len) {
             if(value[i] == '\n'){
@@ -144,7 +155,7 @@ pub const CZenChika = struct {
     ///////////////////////////////////////////
     fn sliceToNum(self: mSelf,str:[]const u8,base:u8)  u64 {
 
-        var i       : u64 = 0;
+        var i       : usize = 0;
         var sumNum  : u64 = 0;
         const numberOffset   = 0;
         const alphabetOffset = 10;
@@ -194,7 +205,8 @@ pub const CZenChika = struct {
 
 
 
-test "zenChikaSetup" {
+// test "zenChikaSetup" {
+pub fn main() anyerror!void {
 
     const stdout = try std.fs.getStdOut();
     try stdout.write("\nzenChikaSetup Start!\n");
@@ -233,5 +245,17 @@ test "zenChikaSetup" {
     };
 
     defer heap.free(heap.direct_allocator, valueMem); //zenChikaMemRead(正常系)のメモリ開放
+
+    // var fSel : usize  = 0;
+    // var shift : i64 = 0;
+    // var pin : i64   = 17; // GPIO17
+    // var gpset : usize = 7;
+    // var gpclr : usize = 10;
+
+    // const mmap_addr = @bytesToSlice(u32, valueMem);
+
+    // mmap_addr[fSel] = mmap_addr[fSel] & 0xF8;
+    // mmap_addr[gpset] = mmap_addr[gpset] | 0x20000;
+
 
 }

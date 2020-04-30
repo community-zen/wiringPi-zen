@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "*.tpl": "php",
+        "*.tag": "html",
+        "mman.h": "c",
+        "ios": "c"
+    }
+}

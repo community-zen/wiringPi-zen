@@ -76,6 +76,7 @@ pub const CZenChika = struct {
     fn zenChikaSetup(self: mSelf)  ![]u8 {
 
         const file = try fs.File.openRead("/proc/cpuinfo");//本来のpathは"/proc/cpuinfo"
+        // const file = try fs.File.openRead("/Users/tomohiro/Documents/wiringPi-zen/zenChika/zen_chika/cpuinfo.txt");//本来のpathは"/proc/cpuinfo"
         defer file.close();
         // const size = @intCast(usize, try file.getEndPos());
         const size = 1500;
@@ -98,26 +99,27 @@ pub const CZenChika = struct {
     ///////////////////////////////////////////
     fn zenChikaMmap(self: mSelf)  ![]align(mem.page_size) u8 {
         const PERI_BASE = 0x3F000000;
-        const GPIO_BASE = (PERI_BASE + 0x200000); // GPIO controller
+        const GPIO_BASE = (PERI_BASE + 0x00200000); // GPIO controller
         const BLOCK_SIZE = (4 * 1024);
-        const fd = try os.open("/dev/mem", 0, os.O_RDWR | os.O_SYNC | os.O_CLOEXEC);
+        const fd = try os.open("/dev/mem", os.O_RDWR | os.O_SYNC | os.O_CLOEXEC,  0);
         errdefer os.close(fd);
         // const size_fd = @intCast(usize, (try os.fstat(fd)).size);
 
         std.debug.warn("/dev/mem ok\n");
 
+        if ( fd == undefined )std.debug.warn("/dev/mem NG\n");
+
         const bytes = try os.mmap(
             null,
-            // mem.alignForward(size_fd, mem.page_size),
             BLOCK_SIZE,
             os.PROT_READ | os.PROT_WRITE,
             os.MAP_SHARED,
             fd,
-            // 0,
             GPIO_BASE,
         );
         errdefer os.munmap(bytes);
 
+        std.debug.warn("mmap ok\n");
 
 
         return bytes;
@@ -238,24 +240,44 @@ pub fn main() anyerror!void {
     zenChika.getRevisionInfo(RevisionNum) ;//リビジョン情報をそれぞれの要素に分割して表示(本来は列挙型のタグ名を表示したい・・・)
 
     const valueMem = zenChika.zenChikaMmap() catch |err| {//zenChikaMemReadに失敗した場合は、終了
-        try stdout.write("err_zenChikaMemRead\n");
+        std.debug.warn("err_zenChikaMemRead {}\n", err);
         try stdout.write("\n");
-        ok(err == os.MMapError.AccessDenied);
+        testing.equal(err, os.MMapError.AccessDenied);
         return;
     };
 
     defer heap.free(heap.direct_allocator, valueMem); //zenChikaMemRead(正常系)のメモリ開放
 
-    // var fSel : usize  = 0;
-    // var shift : i64 = 0;
-    // var pin : i64   = 17; // GPIO17
-    // var gpset : usize = 7;
-    // var gpclr : usize = 10;
+    var fSel : usize  = 0;
+    var shift : i64 = 0;
+    var pin : i64   = 17; // GPIO17
+    var gpset : usize = 7;
+    var gpclr : usize = 10;
 
-    // const mmap_addr = @bytesToSlice(u32, valueMem);
+    const mmap_addr = @bytesToSlice(u32, valueMem);
 
-    // mmap_addr[fSel] = mmap_addr[fSel] & 0xF8;
-    // mmap_addr[gpset] = mmap_addr[gpset] | 0x20000;
+    std.debug.warn("p old fSel = {}\n", &mmap_addr[fSel]);
+    std.debug.warn("p old gpset = {}\n", &mmap_addr[gpset]);
+    std.debug.warn("old fSel = {}\n", mmap_addr[fSel]);
+    std.debug.warn("old gpset = {}\n", mmap_addr[gpset]);
+
+    mmap_addr[fSel] = mmap_addr[fSel] & 0x8 | 1;
+    mmap_addr[gpset] = 1 << 17;
+
+    std.time.sleep(1000 * std.time.millisecond);
+
+    mmap_addr[gpclr] = 1 << 17;
+
+    std.time.sleep(1000 * std.time.millisecond);
+
+    mmap_addr[gpset] = 1 << 17;
+
+    // mmap_addr[gpset] = 1735551343;
+
+    std.debug.warn("p fSel = {}\n", &mmap_addr[fSel]);
+    std.debug.warn("p gpset = {}\n", &mmap_addr[gpset]);
+    std.debug.warn("fSel = {}\n", mmap_addr[fSel]);
+    std.debug.warn("gpset = {}\n", mmap_addr[gpset]);
 
 
 }

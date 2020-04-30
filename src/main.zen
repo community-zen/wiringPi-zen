@@ -36,7 +36,7 @@ pub fn pinMode(pin: c_int, mode: c_int) void {
 }
 
 pub fn digitalWrite(pin: c_int, value: c_int) void {
-    _ = c.pinMode(pin, value);
+    _ = c.digitalWrite(pin, value);
 }
 
 pub fn delay(howLong: c_uint) void {

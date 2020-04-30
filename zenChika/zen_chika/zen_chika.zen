@@ -8,6 +8,55 @@ const mem = std.mem;
 const math = std.math;
 const os = std.os;
 
+const CtrlReg = packed struct {
+    gpfsel0: u32 = 0,
+    gpfsel1: u32 = 0,
+    gpfsel2: u32 = 0,
+    gpfsel3: u32 = 0,
+    gpfsel4: u32 = 0,
+    gpfsel5: u32 = 0,
+
+    reserved0: [4]u8 = [_]u8{0}**4,
+
+    gpset0: u32 = 0,
+    gpset1: u32 = 0,
+
+    reserved1: [4]u8 = [_]u8{0}**4,
+
+    gpclr0: u32 = 0,
+    gpclr1: u32 = 0,
+
+    reserved2: [4]u8 = [_]u8{0}**4,
+    other:[29]u32 =  [_]u32{0}**29,
+
+    const offset = 0x00200000;
+    const BLOCK_SIZE = (4 * 1024);
+
+    fn getPtr(comptime base: usize) !*volatile CtrlReg{
+        const fd = try os.open("/Users/endy/ZenProject/ZenChika/zen_chika/mem", os.O_RDWR | os.O_SYNC | os.O_CLOEXEC,  0);
+        errdefer os.close(fd);
+
+        std.debug.warn("/dev/mem ok\n");
+
+        if ( fd == undefined )std.debug.warn("/dev/mem NG\n");
+
+        const bytes = try os.mmap(
+            null,
+            BLOCK_SIZE,
+            os.PROT_READ | os.PROT_WRITE,
+            os.MAP_SHARED,
+            fd,
+            base + offset,
+        );
+        errdefer os.munmap(bytes);
+
+        std.debug.warn("mmap ok\n");
+
+
+        return @ptrCast(*volatile CtrlReg,bytes.ptr);
+    }
+
+};
 
 pub const CZenChika = struct {
     mDebug : bool = false,
@@ -75,8 +124,8 @@ pub const CZenChika = struct {
     ///////////////////////////////////////////
     fn zenChikaSetup(self: mSelf)  ![]u8 {
 
-        const file = try fs.File.openRead("/proc/cpuinfo");//本来のpathは"/proc/cpuinfo"
-        // const file = try fs.File.openRead("/Users/tomohiro/Documents/wiringPi-zen/zenChika/zen_chika/cpuinfo.txt");//本来のpathは"/proc/cpuinfo"
+        // const file = try fs.File.openRead("/proc/cpuinfo");//本来のpathは"/proc/cpuinfo"
+        const file = try fs.File.openRead("/Users/endy/ZenProject/ZenChika/zen_chika/cpuinfo");//本来のpathは"/proc/cpuinfo"
         defer file.close();
         // const size = @intCast(usize, try file.getEndPos());
         const size = 1500;
@@ -101,7 +150,7 @@ pub const CZenChika = struct {
         const PERI_BASE = 0x3F000000;
         const GPIO_BASE = (PERI_BASE + 0x00200000); // GPIO controller
         const BLOCK_SIZE = (4 * 1024);
-        const fd = try os.open("/dev/mem", os.O_RDWR | os.O_SYNC | os.O_CLOEXEC,  0);
+        const fd = try os.open("/Users/endy/ZenProject/ZenChika/zen_chika/mem", os.O_RDWR | os.O_SYNC | os.O_CLOEXEC,  0);
         errdefer os.close(fd);
         // const size_fd = @intCast(usize, (try os.fstat(fd)).size);
 
@@ -202,13 +251,60 @@ pub const CZenChika = struct {
         std.debug.warn("bMem = {}\n", mBMem);
         std.debug.warn("bWarranty = {}\n", mBWarranty);
     }
+
+    // ///////////////////////////////////////////
+    // // @brief  PinModeを設定する
+    // // @note
+    // //  0:Input
+    // //  1:Output
+    // ///////////////////////////////////////////
+    // fn setPinMode(self: mSelf,pin:u8,pinMode:u8,value:[]u8)   {
+    //     var fSel    : usize = 0;
+    //     var shift   : i64   = 0;
+    //     //var pin     : i64   = 17; // GPIO17
+    //     const mmap_addr = @bytesToSlice(u32, value);
+    //     mmap_addr[fSel] = mmap_addr[fSel] & 0x8 | 1;
+    //     return ;
+    // }
+
+    // ///////////////////////////////////////////
+    // // @brief  Ledを点灯させる
+    // // @note
+    // //  -
+    // ///////////////////////////////////////////
+    // fn ledOn(self: mSelf,value:[]u8)  void {
+    //     var fSel    : usize = 0;
+    //     var shift   : i64   = 0;
+    //     var pin     : i64   = 17; // GPIO17
+    //     var gpset   : usize = 7;
+    //     const mmap_addr = @bytesToSlice(u32, value);
+
+    //     mmap_addr[fSel] = mmap_addr[fSel] & 0x8 | 1;
+    //     mmap_addr[gpset] = 1 << 17;
+    // }
+
+    // ///////////////////////////////////////////
+    // // @brief  Ledを消灯させる
+    // // @note
+    // //  -
+    // ///////////////////////////////////////////
+    // fn ledOff(self: mSelf,value:[]u8)  void {
+    //     var fSel    : usize = 0;
+    //     var shift   : i64   = 0;
+    //     var pin     : i64   = 17; // GPIO17
+    //     var gpclr   : usize = 10;
+    //     const mmap_addr = @bytesToSlice(u32, value);
+
+    //     mmap_addr[fSel] = mmap_addr[fSel] & 0x8 | 1;
+    //     mmap_addr[gpclr] = 1 << 17;
+    // }
 };
 
 
 
 
-// test "zenChikaSetup" {
-pub fn main() anyerror!void {
+test "zenChikaSetup" {
+// pub fn main() anyerror!void {
 
     const stdout = try std.fs.getStdOut();
     try stdout.write("\nzenChikaSetup Start!\n");
@@ -239,45 +335,25 @@ pub fn main() anyerror!void {
 
     zenChika.getRevisionInfo(RevisionNum) ;//リビジョン情報をそれぞれの要素に分割して表示(本来は列挙型のタグ名を表示したい・・・)
 
-    const valueMem = zenChika.zenChikaMmap() catch |err| {//zenChikaMemReadに失敗した場合は、終了
-        std.debug.warn("err_zenChikaMemRead {}\n", err);
-        try stdout.write("\n");
-        testing.equal(err, os.MMapError.AccessDenied);
-        return;
-    };
+    // const valueMem = zenChika.zenChikaMmap() catch |err| {//zenChikaMemReadに失敗した場合は、終了
+    //     std.debug.warn("err_zenChikaMemRead {}\n", err);
+    //     try stdout.write("\n");
+    //     return;
+    // };
 
-    defer heap.free(heap.direct_allocator, valueMem); //zenChikaMemRead(正常系)のメモリ開放
+    // defer heap.free(heap.direct_allocator, valueMem); //zenChikaMemRead(正常系)のメモリ開放
 
-    var fSel : usize  = 0;
-    var shift : i64 = 0;
-    var pin : i64   = 17; // GPIO17
-    var gpset : usize = 7;
-    var gpclr : usize = 10;
+    // std.time.sleep(1000 * std.time.millisecond);
 
-    const mmap_addr = @bytesToSlice(u32, valueMem);
+    const valueMem = CtrlReg.getPtr(0x3F000000);
 
-    std.debug.warn("p old fSel = {}\n", &mmap_addr[fSel]);
-    std.debug.warn("p old gpset = {}\n", &mmap_addr[gpset]);
-    std.debug.warn("old fSel = {}\n", mmap_addr[fSel]);
-    std.debug.warn("old gpset = {}\n", mmap_addr[gpset]);
-
-    mmap_addr[fSel] = mmap_addr[fSel] & 0x8 | 1;
-    mmap_addr[gpset] = 1 << 17;
-
-    std.time.sleep(1000 * std.time.millisecond);
-
-    mmap_addr[gpclr] = 1 << 17;
-
-    std.time.sleep(1000 * std.time.millisecond);
-
-    mmap_addr[gpset] = 1 << 17;
-
-    // mmap_addr[gpset] = 1735551343;
-
-    std.debug.warn("p fSel = {}\n", &mmap_addr[fSel]);
-    std.debug.warn("p gpset = {}\n", &mmap_addr[gpset]);
-    std.debug.warn("fSel = {}\n", mmap_addr[fSel]);
-    std.debug.warn("gpset = {}\n", mmap_addr[gpset]);
-
-
+    if (valueMem) |value| {
+        std.debug.warn("@@@\n");
+        value.gpfsel0 = value.gpfsel0 & 0x8 | 1;
+        std.debug.warn("test\n");
+        value.gpset0  = 1 << 17;
+    } else |err| {
+        
+    }
+    
 }
